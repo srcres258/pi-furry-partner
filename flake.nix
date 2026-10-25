@@ -14,6 +14,49 @@
       forAllSystems = nixpkgs.lib.genAttrs systems;
     in
     {
+      packages = forAllSystems (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+          node = pkgs.nodejs_24;
+          mkSitePackage = { pname, version, projectDir }:
+            pkgs.stdenvNoCC.mkDerivation {
+              inherit pname version;
+              src = self;
+              nativeBuildInputs = [ node ];
+              dontConfigure = true;
+
+              buildPhase = ''
+                runHook preBuild
+                sourceDir="$NIX_BUILD_TOP/$sourceRoot"
+                cd "$sourceDir/${projectDir}"
+                npm run build:site
+                npm run test:site
+                runHook postBuild
+              '';
+
+              installPhase = ''
+                runHook preInstall
+                mkdir -p "$out"
+                sourceDir="$NIX_BUILD_TOP/$sourceRoot"
+                cp -R "$sourceDir/${projectDir}/dist/." "$out/"
+                runHook postInstall
+              '';
+            };
+        in
+        {
+          site-original = mkSitePackage {
+            pname = "pi-furry-partner-site-original";
+            version = "2.5.1";
+            projectDir = ".";
+          };
+
+          site-hd = mkSitePackage {
+            pname = "pi-furry-partner-site-hd";
+            version = "2.5.1-preview.6";
+            projectDir = "editions/hd";
+          };
+        });
+
       devShells = forAllSystems (system:
         let
           pkgs = import nixpkgs { inherit system; };
