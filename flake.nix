@@ -44,6 +44,35 @@
             };
         in
         {
+          pi-original-runtime =
+            let runtimeVersion = "2.5.1";
+            in pkgs.stdenvNoCC.mkDerivation {
+            pname = "pi-furry-partner-runtime";
+            version = runtimeVersion;
+            src = self;
+            nativeBuildInputs = [ node pkgs.gnutar ];
+            dontConfigure = true;
+
+            buildPhase = ''
+              runHook preBuild
+              export HOME="$NIX_BUILD_TOP/home"
+              export npm_config_cache="$NIX_BUILD_TOP/npm-cache"
+              mkdir -p "$HOME" "$npm_config_cache"
+              sourceDir="$NIX_BUILD_TOP/$sourceRoot"
+              cd "$sourceDir"
+              npm pack --ignore-scripts --pack-destination "$NIX_BUILD_TOP"
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p "$out"
+              tar -xzf "$NIX_BUILD_TOP/pi-furry-partner-${runtimeVersion}.tgz" \
+                --strip-components=1 --directory "$out"
+              runHook postInstall
+            '';
+          };
+
           site-original = mkSitePackage {
             pname = "pi-furry-partner-site-original";
             version = "2.5.1";
