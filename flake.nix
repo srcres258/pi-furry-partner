@@ -73,6 +73,35 @@
             '';
           };
 
+          pi-original-zip =
+            let releaseVersion = "2.5.1";
+            in pkgs.stdenvNoCC.mkDerivation {
+            pname = "pi-furry-partner-release-zip";
+            version = releaseVersion;
+            src = self;
+            nativeBuildInputs = [ pkgs.coreutils pkgs.python3 ];
+            dontConfigure = true;
+
+            buildPhase = ''
+              runHook preBuild
+              sourceDir="$NIX_BUILD_TOP/$sourceRoot"
+              archive="$NIX_BUILD_TOP/pi-furry-partner-${releaseVersion}.zip"
+              python "$sourceDir/scripts/package-pi-release.py" \
+                --source "$sourceDir" --out "$archive"
+              (cd "$NIX_BUILD_TOP" && sha256sum "pi-furry-partner-${releaseVersion}.zip" \
+                > "pi-furry-partner-${releaseVersion}.zip.sha256")
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p "$out"
+              cp "$NIX_BUILD_TOP/pi-furry-partner-${releaseVersion}.zip" "$out/"
+              cp "$NIX_BUILD_TOP/pi-furry-partner-${releaseVersion}.zip.sha256" "$out/"
+              runHook postInstall
+            '';
+          };
+
           site-original = mkSitePackage {
             pname = "pi-furry-partner-site-original";
             version = "2.5.1";
