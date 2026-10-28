@@ -12,6 +12,32 @@
         "aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
+      # One filtered input per consumer. Both the packages and the checks need
+      # these trees, so they live outside forAllSystems: a source path does not
+      # depend on the target system.
+      sourceRoot = toString self;
+      relativeSourcePath = path:
+        let value = toString path;
+        in if value == sourceRoot then ""
+           else builtins.substring ((builtins.stringLength sourceRoot) + 1)
+             ((builtins.stringLength value) - (builtins.stringLength sourceRoot) - 1) value;
+      sourceFilter = predicate: nixpkgs.lib.cleanSourceWith {
+        src = self;
+        filter = path: type: predicate (relativeSourcePath path) type;
+      };
+      sourceFor = prefixes: sourceFilter (relative: _:
+        relative == "" || builtins.any (prefix:
+          relative == prefix || nixpkgs.lib.hasPrefix "${prefix}/" relative ||
+          nixpkgs.lib.hasPrefix "${relative}/" prefix) prefixes);
+      originalRuntimeSource = sourceFor [
+        "index.ts" "config.json" "install.ps1" "uninstall.ps1" "package.json"
+        "lib" "assets" "themes" "prompts" "LICENSE" "NOTICE" "ASSET_LICENSE.md"
+        "README.md" "README.en.md"
+      ];
+      originalArchiveSource = sourceFilter (relative: _:
+        let top = if relative == "" then "" else builtins.head (nixpkgs.lib.splitString "/" relative);
+        in relative == "" || !(builtins.elem top [ "editions" ".github" ".git" ]));
+      hdSource = sourceFor [ "editions/hd" ];
     in
     {
       packages = forAllSystems (system:
@@ -22,29 +48,6 @@
             pythonPackages.numpy
             pythonPackages.pillow
           ]);
-          sourceRoot = toString self;
-          relativeSourcePath = path:
-            let value = toString path;
-            in if value == sourceRoot then ""
-               else builtins.substring ((builtins.stringLength sourceRoot) + 1)
-                 ((builtins.stringLength value) - (builtins.stringLength sourceRoot) - 1) value;
-          sourceFilter = predicate: pkgs.lib.cleanSourceWith {
-            src = self;
-            filter = path: type: predicate (relativeSourcePath path) type;
-          };
-          sourceFor = prefixes: sourceFilter (relative: _:
-            relative == "" || builtins.any (prefix:
-              relative == prefix || pkgs.lib.hasPrefix "${prefix}/" relative ||
-              pkgs.lib.hasPrefix "${relative}/" prefix) prefixes);
-          originalRuntimeSource = sourceFor [
-            "index.ts" "config.json" "install.ps1" "uninstall.ps1" "package.json"
-            "lib" "assets" "themes" "prompts" "LICENSE" "NOTICE" "ASSET_LICENSE.md"
-            "README.md" "README.en.md"
-          ];
-          originalArchiveSource = sourceFilter (relative: _:
-            let top = if relative == "" then "" else builtins.head (pkgs.lib.splitString "/" relative);
-            in relative == "" || !(builtins.elem top [ "editions" ".github" ".git" ]));
-          hdSource = sourceFor [ "editions/hd" ];
           mkPiTestRuntime = { runtimeName, version, npmDepsHash }:
             pkgs.buildNpmPackage {
               pname = "pi-furry-partner-pi-test-runtime";
@@ -200,6 +203,65 @@
             version = "2.5.1-preview.6";
             projectDir = "editions/hd";
             src = hdSource;
+          };
+        });
+
+      # `nix flake check` used to pass without running anything, because the
+      # flake exported no checks at all. Reuse the package derivations where the
+      # build already is the verification: the site packages run their own site
+      # checks, and pi-hd-bundle runs the whole HD suite against both Pi runtimes
+      # before it can produce an archive. Windows-only PowerShell, installer and
+      # recovery coverage stays on the Windows runners; a Linux sandbox cannot
+      # stand in for it.
+      checks = forAllSystems (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+          node = pkgs.nodejs_24;
+          packages = self.packages.${system};
+          mkVerifiedCheck = { pname, version, src, nativeBuildInputs, run }: pkgs.stdenvNoCC.mkDerivation {
+            inherit pname version src nativeBuildInputs;
+            dontConfigure = true;
+            dontBuild = true;
+
+            installPhase = ''
+              runHook preInstall
+              cd "$NIX_BUILD_TOP/$sourceRoot"
+              ${run}
+              mkdir -p "$out"
+              touch "$out/passed"
+              runHook postInstall
+            '';
+          };
+        in
+        {
+          inherit (packages) pi-original-runtime pi-original-zip site-original site-hd pi-hd-bundle;
+
+          # The original-resource line checks that the packages above cannot
+          # express: the published version, the changelog-derived release plan
+          # and the preserved v2.4.0 resource hashes.
+          original-line = mkVerifiedCheck {
+            pname = "pi-furry-partner-check-original-line";
+            version = "2.5.1";
+            src = originalArchiveSource;
+            nativeBuildInputs = [ node ];
+            run = ''
+              node scripts/verify-legacy-line.mjs
+              node tests/legacy-release.mjs
+              node tests/legacy-resources.mjs
+            '';
+          };
+
+          # HD release-line isolation, checked from editions/hd because that
+          # is where tools/release-edition.py and its fixtures live.
+          hd-release-lines = mkVerifiedCheck {
+            pname = "pi-furry-partner-check-hd-release-lines";
+            version = "2.5.1-preview.6";
+            src = hdSource;
+            nativeBuildInputs = [ pkgs.python3 ];
+            run = ''
+              cd editions/hd
+              python tests/release-lines.py
+            '';
           };
         });
 
