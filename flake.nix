@@ -18,10 +18,32 @@
         let
           pkgs = import nixpkgs { inherit system; };
           node = pkgs.nodejs_24;
-          mkSitePackage = { pname, version, projectDir }:
+          sourceRoot = toString self;
+          relativeSourcePath = path:
+            let value = toString path;
+            in if value == sourceRoot then ""
+               else builtins.substring ((builtins.stringLength sourceRoot) + 1)
+                 ((builtins.stringLength value) - (builtins.stringLength sourceRoot) - 1) value;
+          sourceFilter = predicate: pkgs.lib.cleanSourceWith {
+            src = self;
+            filter = path: type: predicate (relativeSourcePath path) type;
+          };
+          sourceFor = prefixes: sourceFilter (relative: _:
+            relative == "" || builtins.any (prefix:
+              relative == prefix || pkgs.lib.hasPrefix "${prefix}/" relative ||
+              pkgs.lib.hasPrefix "${relative}/" prefix) prefixes);
+          originalRuntimeSource = sourceFor [
+            "index.ts" "config.json" "install.ps1" "uninstall.ps1" "package.json"
+            "lib" "assets" "themes" "prompts" "LICENSE" "NOTICE" "ASSET_LICENSE.md"
+            "README.md" "README.en.md"
+          ];
+          originalArchiveSource = sourceFilter (relative: _:
+            let top = if relative == "" then "" else builtins.head (pkgs.lib.splitString "/" relative);
+            in relative == "" || !(builtins.elem top [ "editions" ".github" ".git" ]));
+          hdSource = sourceFor [ "editions/hd" ];
+          mkSitePackage = { pname, version, projectDir, src }:
             pkgs.stdenvNoCC.mkDerivation {
-              inherit pname version;
-              src = self;
+              inherit pname version src;
               nativeBuildInputs = [ node ];
               dontConfigure = true;
 
@@ -49,7 +71,7 @@
             in pkgs.stdenvNoCC.mkDerivation {
             pname = "pi-furry-partner-runtime";
             version = runtimeVersion;
-            src = self;
+            src = originalRuntimeSource;
             nativeBuildInputs = [ node pkgs.gnutar ];
             dontConfigure = true;
 
@@ -78,7 +100,7 @@
             in pkgs.stdenvNoCC.mkDerivation {
             pname = "pi-furry-partner-release-zip";
             version = releaseVersion;
-            src = self;
+            src = originalArchiveSource;
             nativeBuildInputs = [ pkgs.coreutils pkgs.python3 ];
             dontConfigure = true;
 
@@ -106,12 +128,17 @@
             pname = "pi-furry-partner-site-original";
             version = "2.5.1";
             projectDir = ".";
+            src = sourceFor [
+              "index.ts" "config.json" "package.json" "lib" "assets" "scripts" "site"
+              "themes" "README.md" "README.en.md"
+            ];
           };
 
           site-hd = mkSitePackage {
             pname = "pi-furry-partner-site-hd";
             version = "2.5.1-preview.6";
             projectDir = "editions/hd";
+            src = hdSource;
           };
         });
 
