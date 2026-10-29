@@ -129,7 +129,7 @@ Nix 用户可构建完整的 Pi 包目录，再让 Pi 从一个稳定的 GC root
 ```sh
 extension_link="${XDG_DATA_HOME:-$HOME/.local/share}/pi-furry-partner/original-extension"
 mkdir -p "$(dirname "$extension_link")"
-nix build --out-link "$extension_link" github:KouzakiUmi/pi-furry-partner#pi-original-runtime
+nix build --out-link "$extension_link" github:KouzakiUmi/pi-furry-partner#pi-original-extension
 pi install "$extension_link"
 ```
 

@@ -29,7 +29,7 @@
         relative == "" || builtins.any (prefix:
           relative == prefix || nixpkgs.lib.hasPrefix "${prefix}/" relative ||
           nixpkgs.lib.hasPrefix "${relative}/" prefix) prefixes);
-      originalRuntimeSource = sourceFor [
+      originalExtensionSource = sourceFor [
         "index.ts" "config.json" "install.ps1" "uninstall.ps1" "package.json"
         "lib" "assets" "themes" "prompts" "LICENSE" "NOTICE" "ASSET_LICENSE.md"
         "README.md" "README.en.md"
@@ -135,12 +135,12 @@
           };
         in
         {
-          pi-original-runtime =
-            let runtimeVersion = "2.5.1";
+          pi-original-extension =
+            let extensionVersion = "2.5.1";
             in pkgs.stdenvNoCC.mkDerivation {
-            pname = "pi-furry-partner-runtime";
-            version = runtimeVersion;
-            src = originalRuntimeSource;
+            pname = "pi-furry-partner-original";
+            version = extensionVersion;
+            src = originalExtensionSource;
             nativeBuildInputs = [ node pkgs.gnutar ];
             dontConfigure = true;
 
@@ -158,7 +158,7 @@
             installPhase = ''
               runHook preInstall
               mkdir -p "$out"
-              tar -xzf "$NIX_BUILD_TOP/pi-furry-partner-${runtimeVersion}.tgz" \
+              tar -xzf "$NIX_BUILD_TOP/pi-furry-partner-${extensionVersion}.tgz" \
                 --strip-components=1 --directory "$out"
               runHook postInstall
             '';
@@ -245,7 +245,7 @@
           };
         in
         {
-          inherit (packages) pi-original-runtime pi-original-zip site-original site-hd pi-hd-bundle pi-hd-extension;
+          inherit (packages) pi-original-extension pi-original-zip site-original site-hd pi-hd-bundle pi-hd-extension;
 
           # The original-resource line checks that the packages above cannot
           # express: the published version, the changelog-derived release plan
