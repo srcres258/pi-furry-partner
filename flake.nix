@@ -93,6 +93,46 @@
                 runHook postInstall
               '';
             };
+          # Both public HD outputs share one verified build. Its default output
+          # is the unpacked Pi package tree; `bundle` is the release archive
+          # and reports. Do not split this into two derivations: either output
+          # must run the same dual-runtime suite, audit and package smoke test.
+          piHdBuild = pkgs.stdenvNoCC.mkDerivation {
+            pname = "pi-furry-partner-hd";
+            version = "2.5.1-preview.6";
+            outputs = [ "out" "bundle" ];
+            src = hdSource;
+            nativeBuildInputs = [ node pythonWithValidation piTestRuntime12 piTestRuntime13 ];
+            dontConfigure = true;
+
+            buildPhase = ''
+              runHook preBuild
+              export HOME="$NIX_BUILD_TOP/home"
+              mkdir -p "$HOME"
+              sourceDir="$NIX_BUILD_TOP/$sourceRoot/editions/hd"
+              rm -rf "$sourceDir/dist"
+              cd "$sourceDir"
+              python tools/build-editions.py --edition full-animation --platform pi --test \
+                --test-modules "${piTestRuntime12}/node_modules" \
+                --test-modules "${piTestRuntime13}/node_modules"
+              python tools/audit-edition-bundles.py
+              python tools/write-edition-release.py
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p "$out" "$bundle"
+              cp -R "$NIX_BUILD_TOP/$sourceRoot/editions/hd/dist/releases/." "$bundle/"
+              python "$NIX_BUILD_TOP/$sourceRoot/editions/hd/tools/rebase-release-report-paths.py" \
+                --directory "$bundle"
+              cp -R "$NIX_BUILD_TOP/$sourceRoot/editions/hd/dist/verified/full-animation-pi/package/." \
+                "$out/"
+              test -f "$out/package.json"
+              test -f "$out/index.ts"
+              runHook postInstall
+            '';
+          };
         in
         {
           pi-original-runtime =
@@ -156,37 +196,8 @@
           pi-hd-test-runtime-1_2 = piTestRuntime12;
           pi-hd-test-runtime-1_3 = piTestRuntime13;
 
-          pi-hd-bundle = pkgs.stdenvNoCC.mkDerivation {
-            pname = "pi-furry-partner-hd-bundle";
-            version = "2.5.1-preview.6";
-            src = hdSource;
-            nativeBuildInputs = [ node pythonWithValidation piTestRuntime12 piTestRuntime13 ];
-            dontConfigure = true;
-
-            buildPhase = ''
-              runHook preBuild
-              export HOME="$NIX_BUILD_TOP/home"
-              mkdir -p "$HOME"
-              sourceDir="$NIX_BUILD_TOP/$sourceRoot/editions/hd"
-              rm -rf "$sourceDir/dist"
-              cd "$sourceDir"
-              python tools/build-editions.py --edition full-animation --platform pi --test \
-                --test-modules "${piTestRuntime12}/node_modules" \
-                --test-modules "${piTestRuntime13}/node_modules"
-              python tools/audit-edition-bundles.py
-              python tools/write-edition-release.py
-              runHook postBuild
-            '';
-
-            installPhase = ''
-              runHook preInstall
-              mkdir -p "$out"
-              cp -R "$NIX_BUILD_TOP/$sourceRoot/editions/hd/dist/releases/." "$out/"
-              python "$NIX_BUILD_TOP/$sourceRoot/editions/hd/tools/rebase-release-report-paths.py" \
-                --directory "$out"
-              runHook postInstall
-            '';
-          };
+          pi-hd-bundle = piHdBuild.bundle;
+          pi-hd-extension = piHdBuild;
 
           site-original = mkSitePackage {
             pname = "pi-furry-partner-site-original";
@@ -234,7 +245,7 @@
           };
         in
         {
-          inherit (packages) pi-original-runtime pi-original-zip site-original site-hd pi-hd-bundle;
+          inherit (packages) pi-original-runtime pi-original-zip site-original site-hd pi-hd-bundle pi-hd-extension;
 
           # The original-resource line checks that the packages above cannot
           # express: the published version, the changelog-derived release plan
