@@ -48,11 +48,19 @@
             pythonPackages.numpy
             pythonPackages.pillow
           ]);
+          # Bind these to the HD tree, not to the whole flake source. Deriving
+          # them from `self` made any unrelated edit rehash the Pi test runtimes,
+          # which in turn invalidated the HD derivation and re-ran its full test
+          # suite locally, while a clean CI checkout never saw the churn.
+          testRuntimeSource = runtimeName: builtins.path {
+            path = hdSource + "/editions/hd/test-runtimes/${runtimeName}";
+            name = "pi-test-runtime-${runtimeName}";
+          };
           mkPiTestRuntime = { runtimeName, version, npmDepsHash }:
             pkgs.buildNpmPackage {
               pname = "pi-furry-partner-pi-test-runtime";
               inherit version npmDepsHash;
-              src = self + "/editions/hd/test-runtimes/${runtimeName}";
+              src = testRuntimeSource runtimeName;
               dontNpmBuild = true;
               npmRebuildFlags = [ "--ignore-scripts" ];
               installPhase = ''
