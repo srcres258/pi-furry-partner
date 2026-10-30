@@ -206,8 +206,8 @@
             '';
           };
 
-          pi-hd-test-runtime-1_2 = piTestRuntime12;
-          pi-hd-test-runtime-1_3 = piTestRuntime13;
+          pi-test-runtime-1_2 = piTestRuntime12;
+          pi-test-runtime-1_3 = piTestRuntime13;
 
           pi-hd-bundle = piHdBuild.bundle;
           pi-hd-extension = piHdBuild;
@@ -299,33 +299,24 @@
           ]);
 
           # The project tests consume a node_modules directory, not the Pi
-          # launcher. Until the npm dependency closures are locked as Nix
-          # packages, these shells bootstrap the exact CI-style runtime into
-          # the ignored work/ directory and then reuse it on later entries.
-          mkPiShell = { version, runtimeName }:
+          # launcher. Use the same fixed dependency closures as the HD package
+          # build so entering a shell neither needs npm nor writes to work/.
+          mkPiShell = { version, testRuntime }:
             pkgs.mkShell {
               packages = [
                 node
                 pkgs.git
+                testRuntime
               ];
 
               shellHook = ''
-                export PI_TEST_MODULES="$PWD/work/${runtimeName}/node_modules"
+                export PI_TEST_MODULES="${testRuntime}/node_modules"
                 runtime_package="$PI_TEST_MODULES/@earendil-works/pi-coding-agent/package.json"
                 tui_package="$PI_TEST_MODULES/@earendil-works/pi-tui/package.json"
-                if [ ! -f "$runtime_package" ] || [ ! -f "$tui_package" ] \
-                  || [ "$(node -p 'require(process.argv[1]).version' "$runtime_package")" != "${version}" ] \
-                  || [ "$(node -p 'require(process.argv[1]).version' "$tui_package")" != "${version}" ]; then
-                  echo "Installing Pi test runtime ${version} into $PWD/work/${runtimeName}"
-                  mkdir -p "$PWD/work/${runtimeName}"
-                  npm install \
-                    --prefix "$PWD/work/${runtimeName}" \
-                    --no-save --no-package-lock --no-audit --no-fund \
-                    "@earendil-works/pi-coding-agent@${version}" \
-                    "@earendil-works/pi-tui@${version}"
-                fi
+                test "$(node -p 'require(process.argv[1]).version' "$runtime_package")" = "${version}"
+                test "$(node -p 'require(process.argv[1]).version' "$tui_package")" = "${version}"
                 echo "PI_TEST_MODULES=$PI_TEST_MODULES"
-                echo "Pi ${version} runtime is ready for: npm test"
+                echo "Fixed Pi ${version} runtime is ready for: npm test"
               '';
             };
         in
@@ -372,12 +363,12 @@
           # source inputs; entering this shell does not regenerate them.
           pi-1_2 = mkPiShell {
             version = "1.2.0";
-            runtimeName = "pi-runtime-1.2";
+            testRuntime = self.packages.${system}.pi-test-runtime-1_2;
           };
 
           pi-1_3 = mkPiShell {
             version = "1.3.0";
-            runtimeName = "pi-runtime-1.3";
+            testRuntime = self.packages.${system}.pi-test-runtime-1_3;
           };
 
           media = pkgs.mkShell {
