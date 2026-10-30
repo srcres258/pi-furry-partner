@@ -1,0 +1,55 @@
+name: Build and publish HD release
+
+on:
+  push:
+    tags: ['hd-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci-hd.yml
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: editions/hd
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Verify main branch ancestry
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main
+      - name: Resolve tag and release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python tools/release-edition.py resolve --tag "$RELEASE_TAG"
+      - name: Build the selected Pi package with Nix
+        run: |
+          bundle="$(nix build --no-link --print-build-logs --json ../..#pi-hd-bundle | python -c 'import json, sys; print(json.load(sys.stdin)[0]["outputs"]["bundle"])')"
+          rm -rf dist/releases
+          mkdir -p dist/releases
+          cp -R "$bundle"/. dist/releases/
+      - name: Reverify Nix bundle and select release assets
+        run: python tools/release-edition.py assets --plan dist/release/release-plan.json
+      - name: Publish only the selected edition
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mapfile -t plan < <(python -c 'import json; p=json.load(open("dist/release/release-plan.json")); print(p["tag"]); print(p["title"]); print(p["notesFile"]); print(p["latest"]); print(str(p["prerelease"]).lower())')
+          mapfile -t assets < <(python -c 'import json; print("\\n".join(json.load(open("dist/release/release-assets.json"))))')
+          args=(release create "${plan[0]}" --verify-tag --title "${plan[1]}" --notes-file "${plan[2]}" "--latest=${plan[3]}")
+          if [[ "${plan[4]}" == true ]]; then args+=(--prerelease); fi
+          gh "${args[@]}" "${assets[@]}"

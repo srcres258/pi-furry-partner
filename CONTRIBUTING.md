@@ -5,17 +5,27 @@
 ## 先了解项目边界
 
 - 项目名是 `pi-furry-partner`，发布主题是 `pi-furry-night`；`/mascot` 命令保留兼容。
-- 当前实际验证目标是 Windows、Pi **1.2.0 与 1.3.0**、PowerShell 5.1 / 7。上游还记录了 **NixOS 26.05 (Yarara)、Pi 1.3.0、Kitty 0.49.1**（`TERM=xterm-kitty`）的历史实机验证：角色显示、实时动画、`auto`/`kitty`/`blocks` 切换和日常交互正常。该记录不代表本轮双构建已在 NixOS 重新验收；其他平台改动请附实际环境。
-- Pi 1.2.0 与 1.3.0 的完整测试均通过，CI 分别安装这两个版本运行。原生中文与文档提示精简按显式版本白名单启用；其他版本保留 Pi 原生行为。
+- 当前完整自动化验证目标是 Windows、Pi **1.2.0 / 1.3.0**、PowerShell 5.1 / 7。其他平台的改进欢迎提交，请附上实际验证环境。
+- 补充实机验证环境为 **NixOS 26.05 (Yarara)、Pi 1.3.0、Kitty 0.49.1**（`TERM=xterm-kitty`）。在该本地 Kitty 会话中，角色显示、实时动画、`auto`/`kitty`/`blocks` 渲染切换和日常交互正常；这属于手动生产环境验证，不替代 Windows 安装脚本检查或 Pi 1.2.0 完整套件。
+- Pi 1.2.0 / 1.3.0 均运行完整套件；原生中文与文档提示精简严格匹配这两个审阅版本，未知版本回退。CI 使用两版矩阵。legacy 的素材与提示词必须逐字节保留 v2.4.0；`node tests/legacy-resources.mjs` 核对 Git 对象生成的原始 SHA-256 清单。
 - 角色显示、界面中文、Pi 文档提示精简、角色口吻分别控制；`language` 支持默认的 `auto` 系统语言检测，也可明确选择简体中文或英文。功能修改应保留这些偏好的独立性，切换语言不应重置任务、草稿或中文补丁开关。
 - 原生界面兼容层不修改 Pi 安装文件；未知版本或结构应回退原行为。用户正文、工具输出、路径和内部保存值不进入普通翻译表。
 - 代码和文档是 Apache-2.0；呜咪角色及相关图像、动画是保留全部权利的素材。具体范围见 [ASSET_LICENSE.md](ASSET_LICENSE.md)。提交通用渲染代码不代表取得角色素材的再利用许可。
 
-Kitty Graphics Protocol 由 [@srcres258](https://github.com/srcres258) 在 [PR #1](https://github.com/KouzakiUmi/pi-furry-partner/pull/1) 中贡献，并提供 Pi 1.3 / NixOS 验证。修改图像传输时保留 `tests/kitty.mjs` 的视口重传、独立放置宽度和释放检查，以及 `tests/integration.mjs` 的弹层回退与恢复验证。外部 Actions 固定到上游已记录的提交 SHA；更新时保留版本注释及当前双构建测试步骤。
-
 ## 远程发布
 
-更新 `package.json`、下载链接及 `CHANGELOG.md` 后，将匹配版本的 `v` 前缀 tag 推送到 GitHub（例如 `v2.3.3`）。`Build and publish release` 工作流复用完整验证流程，通过后从该提交的 Git 跟踪文件生成 ZIP 和 SHA-256 校验文件，再发布为最新 GitHub Release。版本 tag 必须与包版本一致，更新记录必须包含对应版本章节；构建不会包含本地 `work/` 或用户配置。
+产品代码只在 main 维护，不需要同步 legacy / hd 产品分支。贡献仍可使用临时功能分支和 PR。
+
+| 产品 | 工作目录 | CI | 标签与分发 |
+| --- | --- | --- | --- |
+| 原资源版 | 仓库根目录 | CI · Pi original resources | v<根目录版本>，ZIP 与 SHA-256，Latest |
+| HD | editions/hd/ | CI · Pi HD | hd-v<HD版本>，tgz 与校验／审计，latest=false |
+
+更新对应产品 package 和 CHANGELOG，再从 main 创建新的匹配标签。不要移动现有标签、把 HD Git tag 直接当作远程包安装入口，或从原资源包带入 HD 目录。原资源发布支持在 main 手动选择已有 tag 重跑，会检验并构建指定 tag，不重写标签；日常路径过滤不会跳过发布所需完整 CI。详见[统一发布规则](docs/release-line.md)。
+
+## 动作与文档边界
+
+原资源版 `lib/actions.mjs` 为 14 个实际动作生成命令补全；HD 的 17 项小动作与 29 个完整片段由自己的目录维护。不能为了复用命令界面而导入对方状态机。用户文档应同时更新中英文版本，当前说明链接到 [docs/README.md](docs/README.md)；日期性制作记录保留为历史，不冒充当前安装状态。
 
 ## 本地环境
 
@@ -24,7 +34,7 @@ Kitty Graphics Protocol 由 [@srcres258](https://github.com/srcres258) 在 [PR #
 ```sh
 git clone https://github.com/KouzakiUmi/pi-furry-partner.git
 cd pi-furry-partner
-npm install --no-save --package-lock=false @earendil-works/pi-coding-agent@1.3.0 @earendil-works/pi-tui@1.3.0
+npm install --no-save --package-lock=false @earendil-works/pi-coding-agent@1.2.0 @earendil-works/pi-tui@1.2.0
 npm test
 ```
 
@@ -39,7 +49,7 @@ npm test
 
 ## 检查与预览
 
-在项目根目录运行：
+下列命令在原资源版仓库根目录运行；HD 开发先进入 `editions/hd/`，见其 [贡献指南](editions/hd/CONTRIBUTING.md)。
 
 ```powershell
 npm test
@@ -109,7 +119,7 @@ python -m http.server 8000 --directory dist
 描述实际操作、期望结果和观察到的结果，并尽量附上：
 
 - Pi、操作系统、终端与 PowerShell 版本。
-- `regular` / `fullscreen` 模式、窗口行列数、Kitty / Sixel / blocks 渲染方式。
+- `regular` / `fullscreen` 模式、窗口行列数、Sixel / blocks 渲染方式。
 - 使用的安装路线、扩展版本、是否还保留旧名插件或其它自定义编辑器。
 - 可复现的最短步骤，以及已去除私人内容的截图或错误信息。
 

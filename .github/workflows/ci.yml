@@ -1,54 +1,111 @@
-name: Verify plugin
+name: CI · Pi original resources
 
 on:
   push:
-    branches: [main, legacy]
+    branches: [main]
+    paths-ignore: ['editions/hd/**', '.github/workflows/ci-hd.yml', '.github/workflows/release-hd.yml']
   pull_request:
+    branches: [main]
+    paths-ignore: ['editions/hd/**', '.github/workflows/ci-hd.yml', '.github/workflows/release-hd.yml']
   workflow_dispatch:
   workflow_call:
+    inputs:
+      ref:
+        description: Exact source ref requested by the release workflow
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  legacy-line:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7; fallback for historical tag reruns without flake.nix
+        with:
+          node-version: '24'
+      - name: Verify the original-resource release line
+        run: |
+          if [[ -f flake.nix ]]; then
+            nix develop .#default --command bash -euo pipefail -c '
+              node scripts/verify-legacy-line.mjs
+              node tests/legacy-release.mjs
+              node tests/legacy-resources.mjs
+            '
+          else
+            node scripts/verify-legacy-line.mjs
+            node tests/legacy-release.mjs
+            node tests/legacy-resources.mjs
+          fi
   optional-site:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7; fallback for historical tag reruns without flake.nix
         with:
           node-version: '24'
-      - name: Build and verify the preserved static website
+      - name: Build and verify the preserved static website package
         run: |
-          npm run build:site
-          npm run test:site
-  windows:
-    runs-on: windows-latest
+          if [[ -f flake.nix ]]; then
+            nix build .#site-original
+          else
+            npm run build:site
+            npm run test:site
+          fi
+  nix-packages:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Build the installable original-resource package
+        run: |
+          if [[ -f flake.nix ]]; then
+            nix build --print-build-logs .#pi-original-extension
+          else
+            # Historical refs requested by the release workflow predate the
+            # flake; they ship their own archive and have no package output.
+            echo 'Skipped: this ref has no flake.nix.'
+          fi
+      # Covers the --source path of scripts/package-pi-release.py, which the
+      # release workflow never exercises because it packs by tag instead.
+      - name: Build the deterministic source archive
+        run: |
+          if [[ -f flake.nix ]]; then
+            nix build --print-build-logs .#pi-original-zip
+          else
+            echo 'Skipped: this ref has no flake.nix.'
+          fi
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pi-version: ['1.2.0', '1.3.0']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
-      - name: Install the verified Pi runtimes for tests
-        run: |
-          npm install --prefix work/pi-runtime-1.2 --no-save --no-audit --no-fund @earendil-works/pi-coding-agent@1.2.0 @earendil-works/pi-tui@1.2.0
-          npm install --prefix work/pi-runtime-1.3 --no-save --no-audit --no-fund @earendil-works/pi-coding-agent@1.3.0 @earendil-works/pi-tui@1.3.0
-      - name: Verify release line isolation and platform archive names
-        run: python tests/release-lines.py
-      - name: Validate configured editions and both platforms (Pi 1.2.0)
+      - name: Install the verified Pi runtime for tests
+        run: npm install --prefix work/pi-runtime --no-save --no-audit --no-fund @earendil-works/pi-coding-agent@${{ matrix.pi-version }} @earendil-works/pi-tui@${{ matrix.pi-version }}
+      - name: Run runtime and integration suites
         shell: pwsh
         run: |
-          $env:PI_TEST_MODULES = Join-Path $PWD 'work/pi-runtime-1.2/node_modules'
-          python tools/build-editions.py --edition all --platform all --prepare-only --test
-      - name: Run runtime and integration suites (Pi 1.3.0)
-        shell: pwsh
-        run: |
-          $env:PI_TEST_MODULES = Join-Path $PWD 'work/pi-runtime-1.3/node_modules'
-          node tests/integration.mjs
-          node tests/mouse-routing.mjs
-          node tests/ui-chinese.mjs
-          node tests/native-prompt.mjs
-          node tests/mascot-autocomplete.mjs
+          $env:PI_TEST_MODULES = Join-Path $PWD 'work/pi-runtime/node_modules'
+          $env:PI_TEST_VERSION = '${{ matrix.pi-version }}'
+          npm test
       - name: Verify PowerShell 7 install, upgrade and recovery
         shell: pwsh
         run: ./tests/installer.ps1 -WorkDir ./work/installer-core
