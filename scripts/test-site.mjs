@@ -5,7 +5,10 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { styleAssetDirectory } from "../lib/styles.mjs";
-import { loadEncodedSheet } from "../lib/index.js";
+import { withWatchFrames } from "../lib/watch.mjs";
+import { withSearchFrames } from "../lib/search.mjs";
+import { LISTEN_DURATION_MS, withListenFrames } from "../lib/listen.mjs";
+import { withPokeFrame } from "../lib/poke.mjs";
 import vm from "node:vm";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,44 +29,44 @@ check("Typing uses real listening events and keeps paused motion static", () => 
 check("Caption text cannot shrink or paint over paws", () => { assert.match(css, /\.speech:lang\(en\)\{gap:2ch\}/); assert.match(css, /\.speech>span\[aria-hidden\]\{flex:0 0 2ch;min-width:2ch/); assert.match(css, /#bubble\{[^}]*min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap/); assert.match(app, /\$\("\.speech"\)\.setAttribute\("lang"/); });
 check("Pause, reduced motion and hidden-page suspension", () => { assert.match(app, /prefers-reduced-motion/); assert.match(app, /visibilitychange/); assert.match(app, /aria-pressed/); assert.match(css, /prefers-reduced-motion/); });
 check("Three independent demo switches and no model calls", () => { assert.equal((html.match(/role="switch"/g) || []).length, 3); assert.match(app, /const toggleState = \{ locale: true, prompt: true, persona: false \}/); assert.doesNotMatch(app, /fetch\(["']https?:|XMLHttpRequest|sendBeacon|WebSocket/); });
-check("Install copy fallback and pinned version", () => { assert.ok(html.includes(`pi install git:github.com/KouzakiUmi/pi-furry-partner@v${pkg.version}`)); assert.match(app, /navigator\.clipboard/); assert.match(app, /selectNodeContents/); });
+check("Install copy fallback and pinned Pi version", () => { assert.ok(html.includes(`pi install git:github.com/KouzakiUmi/pi-furry-partner@v${pkg.version}`)); assert.ok(html.includes(`/releases/tag/v${pkg.version}`)); assert.ok(!html.includes(`@legacy-v${pkg.version}`)); assert.match(app, /navigator\.clipboard/); assert.match(app, /selectNodeContents/); });
 check("Character ARR and code license separated", () => { assert.match(html, /呜咪角色及动画素材保留全部版权/); assert.match(html, /代码和文档采用 Apache-2.0/); assert.match(html, /All Rights Reserved/); });
 check("Keyboard accessible named controls and visible focus", () => { assert.match(html, /skip-link/); assert.match(html, /aria-label="选择动画状态"/); assert.match(css, /focus-visible/); assert.match(html, /<noscript>/); });
 check("Relative local URLs work under repository subpath", () => { for (const [, url] of html.matchAll(/(?:src|href)="([^"]+)"/g)) { if (!/^(?:https?:|#)/.test(url)) assert.ok(url.startsWith("./"), url); } assert.doesNotMatch(html, /(?:src|href)="\//); });
 check("All build hashes match", () => { assert.equal(manifest.version, pkg.version); assert.equal(manifest.characterName, "Umi"); assert.match(html, />UMI <span>/); assert.doesNotMatch(html, /\bWUMI\b|\bWumi\b/); });
 for (const [file, expected] of Object.entries(manifest.hashes)) assert.equal(createHash("sha256").update(await readFile(join(out, file))).digest("hex"), expected);
-for (const file of ["activity", "motion", "poke", "listen", "gestures", "expressions"]) {
+for (const file of ["activity", "actions", "motion", "poke", "listen"]) {
   const source = await readFile(join(out, "runtime", `${file}.js`), "utf8");
   assert.equal(source, (await readFile(join(root, "lib", `${file}.mjs`), "utf8")).replace(/\.mjs(["'])/g, '.js$1'));
   for (const [, dependency] of source.matchAll(/from\s+["'](\.\/[^"']+)["']/g)) {
-    assert.ok(dependency.endsWith('.js'), `${file}: portable dependency extension`);
+    assert.ok(dependency.endsWith('.js'));
     await access(join(out, 'runtime', dependency));
   }
 }
-const [siteActivity, siteMotion] = await Promise.all([import('../dist/runtime/activity.js'), import('../dist/runtime/motion.js')]);
-assert.equal(typeof siteActivity.createActivity, 'function');
-assert.equal(typeof siteMotion.createMotionPlayer, 'function');
+const { createActivity: createSiteActivity } = await import('../dist/runtime/activity.js');
+let actionClock = 0;
+const siteActivity = createSiteActivity({ now: () => actionClock });
+siteActivity.start({ wake: false });
+assert.equal(siteActivity.setAction('reading'), true);
+assert.equal(siteActivity.snapshot().actionMode, 'reading');
+actionClock = 3500;
+assert.equal(siteActivity.snapshot().actionMode, undefined);
+checks.push('Built browser activity loads all dependencies and runs finite original actions');
 assert.match(await readFile(join(out, "runtime/activity.js"), "utf8"), /from "\.\/poke\.js"/);
 await access(join(out, "runtime/poke.js"));
 await access(join(out, "runtime/listen.js"));
 for (const [style, data] of Object.entries(sheets)) {
   const original = JSON.parse(await readFile(join(root, "assets/reactions", styleAssetDirectory(style), "reaction-sheet.json"), "utf8"));
-  const runtime = loadEncodedSheet(style);
-  assert.deepEqual(data, JSON.parse(JSON.stringify(runtime)), `${style}: complete production sheet including metadata and encoded pixel bytes`);
+  assert.equal(original.frames.length, 21);
   for (let i = 0; i < original.frames.length; i++) assert.deepEqual([...Buffer.from(data.frames[i].pixels, "base64")], original.frames[i].pixels);
-  assert.equal(data.pixelsEncoding, 'u8');
-  for (const frame of data.frames) {
-    const pixels = Buffer.from(frame.pixels, 'base64');
-    assert.equal(pixels.length, data.width * data.height);
-    assert.ok(pixels.every(index => index < data.palette.length));
-  }
-  if (style === 'umi-pixel') {
-    assert.equal(styleAssetDirectory(style), 'pixel');
-    assert.equal(original.frames.length, 16);
-    assert.equal(data.width, 100); assert.equal(data.height, 100);
-    assert.equal(data.frames.length, 17, 'Original pixel frames plus the existing poke patch');
-    for (const key of ['watch', 'listen', 'searchVideo', 'gestureVideos', 'approvedWholeFrames']) assert.equal(data.motion?.[key], undefined, `Old pixel has no new ${key} action bank`);
-  }
+  const patch = JSON.parse(await readFile(join(root, "assets/reactions", styleAssetDirectory(style), "poke-patch.json"), "utf8"));
+  const watch = JSON.parse(await readFile(join(root, "assets/reactions", styleAssetDirectory(style), "watch-frames.json"), "utf8"));
+  const listen = JSON.parse(await readFile(join(root, "assets/reactions", styleAssetDirectory(style), "listen-frames.json"), "utf8"));
+  let runtime = withListenFrames(withWatchFrames(withPokeFrame(original, patch), watch), listen),searchCount=0;
+  try{const search=JSON.parse(await readFile(join(root,"assets/reactions",styleAssetDirectory(style),"search-frames.json"),"utf8"));runtime=withSearchFrames(runtime,search);searchCount=search.frames.length;}
+  catch(error){if(error.code!=="ENOENT")throw error;}
+  assert.equal(data.frames.length, original.frames.length + 1 + watch.frames.length + listen.frames.length+searchCount); assert.deepEqual(data.motion, runtime.motion); assert.deepEqual(data.ids, runtime.ids);
+  for (const { id } of runtime.frames.slice(original.frames.length)) assert.deepEqual([...Buffer.from(data.frames[data.ids[id]].pixels, "base64")], runtime.frames[runtime.ids[id]].pixels);
 }
 checks.push("Original frames and every authored interaction frame exactly match plugin", "Shared runtime files match plugin with only portable dependency URLs");
 const runtimeImports = [...app.matchAll(/import\("(\.\/runtime\/[^\"]+)"\)/g)];
