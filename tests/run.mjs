@@ -1,14 +1,17 @@
 // Independent product and integration suites; no model requests are made.
+await import("./product-layout.mjs");
+await import("./legacy-resources.mjs");
+await import("./legacy-release.mjs");
+await import("./legacy-streaming.mjs");
 await import("./activity.mjs");
+await import("./actions.mjs");
 await import("./response-latency.mjs");
 await import("./footer.mjs");
 await import("./dock-layout.mjs");
 await import("./quick-actions.mjs");
 await import("./sixel.mjs");
 await import("./kitty.mjs");
-await import("./header-timeline.mjs");
 await import("./motion.mjs");
-await import("./ordinary-simple-motion.mjs");
 await import("./style-ids.mjs");
 await import("./startup-eyelids.mjs");
 await import("./poke.mjs");
@@ -27,13 +30,3 @@ await import("./ui-chinese.mjs");
 await import("./language-integration.mjs");
 await import("./prompt-ordering.mjs");
 await import("./language.mjs");
-await import("./dsh-scene-title.mjs");
-await import("./build-editions.mjs");
-
-const { FULL_ANIMATION_EDITION } = await import('../lib/build-profile.mjs');
-if (FULL_ANIMATION_EDITION) {
-  for (const name of ['approved-motion', 'approved-motion-pi', 'approved-motion-dsh',
-    'approved-motion-poke', 'animated-host', 'approved-motion-pack',
-    'approved-motion-hd-delay', 'approved-motion-codec', 'approved-motion-binary-pack',
-    'approved-motion-lifecycle', 'approved-motion-timing', 'approved-motion-dsh-timing']) await import(`./${name}.mjs`);
-}
