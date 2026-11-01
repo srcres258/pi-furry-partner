@@ -144,7 +144,7 @@
         in
         {
           pi-original-extension =
-            let extensionVersion = "2.5.1";
+            let extensionVersion = "2.5.2";
             in pkgs.stdenvNoCC.mkDerivation {
             pname = "pi-furry-partner-original";
             version = extensionVersion;
@@ -173,7 +173,7 @@
           };
 
           pi-original-zip =
-            let releaseVersion = "2.5.1";
+            let releaseVersion = "2.5.2";
             in pkgs.stdenvNoCC.mkDerivation {
             pname = "pi-furry-partner-release-zip";
             version = releaseVersion;
@@ -209,7 +209,7 @@
 
           site-original = mkSitePackage {
             pname = "pi-furry-partner-site-original";
-            version = "2.5.1";
+            version = "2.5.2";
             projectDir = ".";
             src = sourceFor [
               "index.ts" "config.json" "package.json" "lib" "assets" "scripts" "site"
@@ -260,7 +260,7 @@
           # and the preserved v2.4.0 resource hashes.
           original-line = mkVerifiedCheck {
             pname = "pi-furry-partner-check-original-line";
-            version = "2.5.1";
+            version = "2.5.2";
             src = originalArchiveSource;
             nativeBuildInputs = [ node ];
             run = ''
