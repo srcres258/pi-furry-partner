@@ -28,7 +28,7 @@ assert.equal(activity.snapshot().toolCount, 0);
 assert.ok(!JSON.stringify(activity.snapshot()).includes('SECRET'));
 clock = 3800; assert.equal(paint().selection.clipId, 'think');
 activity.handle('tool_execution_start', { toolCallId: 'work', toolName: 'bash' });
-assert.equal(paint().selection.clipId, 'work-enter');
+assert.equal(paint().selection.clipId, 'watch', 'A started command watches through the magnifier');
 activity.handle('ui_prompt_start');
 assert.equal(paint().snapshot.awaitingUser, true);
 assert.ok(!['work', 'work-enter', 'work-exit'].includes(paint().selection?.clipId), 'User prompt interrupts keyboard cleanup immediately');
