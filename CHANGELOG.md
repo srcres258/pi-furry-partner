@@ -2,6 +2,40 @@
 
 main 根目录维护原资源版，editions/hd/ 维护独立 HD 源码。v 标签发布原版 Latest，hd-v 标签发布 HD 且 latest=false。DSH 独立维护；下方旧版本记录保留历史说明。
 
+## 2.5.4 · 2026-11-06
+
+### 简体中文
+
+- 原生中文界面、Pi 文档提示精简与内置命令补全翻译扩展到 Pi 1.5.0，白名单与 CI 矩阵同步为 1.2.0／1.3.0／1.4.0／1.5.0。
+- 提示词适配改为按发布线区分已核对的原生布局：1.2.0–1.4.0 共用原有 preamble、工具说明与 docs 段，1.5.0 使用其改写后的措辞。中文精简仍覆盖全部文档主题、路径解析与完整阅读要求，未知版本或结构变化继续回退原生行为。
+- 内置命令补全补上 Pi 1.5.0 改写的 `/import` 与 `/resume` 说明；命令名、参数提示与补全结果保持原样，旧版说明继续保留。
+- 保留全部 507 个 v2.4.0 原资源文件、四种外观与原有动作路由，以及 2.5.1 的 `/mascot action`、任务抢占和分层补全。
+- 同一 main 的 `editions/hd/` 同步适配并另行维护；本版本不含 HD 素材或运行时。
+
+### English
+
+- Extend the native Chinese UI, concise Pi documentation prompt and built-in command descriptions to Pi 1.5.0, with the reviewed version list and CI matrix updated to 1.2.0/1.3.0/1.4.0/1.5.0.
+- Prompt adaptation now selects the reviewed native layout per release line: 1.2.0–1.4.0 keep the previous preamble, tools introduction and docs section, while 1.5.0 uses its rewritten wording. The Chinese condensation still covers every documented topic, path resolution and complete-read rule, and unknown versions or altered shapes keep falling back to native behavior.
+- Built-in command completion gains the Pi 1.5.0 `/import` and `/resume` wording; command names, argument hints and completion results stay intact, and earlier descriptions remain supported.
+- Preserve all 507 original v2.4.0 files, the four styles and the original action routing, plus 2.5.1's `/mascot action`, task preemption and hierarchical completion.
+- `editions/hd/` on the same main is adapted in step and maintained separately; this release contains no HD artwork or runtime.
+
+## 2.5.3 · 2026-11-03
+
+### 简体中文
+
+- 引入社区贡献的 Nix 可复现构建基础（PR #15，由 @srcres258 提交）：锁定的 `flake.nix`／`flake.lock`，`default`、`hd`、`media` 三个开发外壳，`nixfmt` 格式化器，以及 `site-original`／`site-hd` 两个站点包。
+- Linux 端原资源版与 HD 的 CI 检查、可选 Pages 站点构建改由对应 Nix 包执行；Windows 安装器、PowerShell、原生 Pi 与 recovery 验证保持不变。
+- 站点包版本随各 edition 的 `package.json`，HD CI 的触发路径纳入 `flake.nix`／`flake.lock`，根 flake 变更不会再漏跑 HD 检查。
+- 原资源版运行时、全部 507 个 v2.4.0 原资源文件、四种外观与动作路由不变；本版本不含 HD 素材或运行时，HD 仍以 `hd-v2.5.1-preview.6` 独立发布且不设 Latest。
+
+### English
+
+- Add the community-contributed Nix reproducibility foundation (PR #15 by @srcres258): locked `flake.nix`/`flake.lock`, `default`, `hd` and `media` development shells, the `nixfmt` formatter, and the `site-original`/`site-hd` site packages.
+- Linux CI checks for the original-resource and HD editions plus the optional Pages site build now run through those Nix packages; the Windows installer, PowerShell, native Pi and recovery validation are unchanged.
+- Site package versions follow each edition's `package.json`, and HD CI now also triggers on `flake.nix`/`flake.lock` so root flake changes cannot skip HD checks.
+- The original-resource runtime, all 507 v2.4.0 asset files, the four styles and action routing are unchanged; this release ships no HD artwork or runtime, and HD stays on its separate `hd-v2.5.1-preview.6` line with latest=false.
+
 ## 2.5.2 · 2026-10-31
 
 ### 简体中文
