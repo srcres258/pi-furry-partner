@@ -62,6 +62,9 @@ function toolObject(args) {
 // bounded, and never changes the real phase or tool count.
 const PREPARING_WINDOW_MS = 15000;
 const PREPARATION_BUBBLES = {
+  // Editing and writing reuse the ordinary tool copy so a streamed write never
+  // falls through to the generic keyboard phrase.
+  editing: "我改改呀", writing: "我写写呀",
   preparing_code: "我写代码", preparing_command: "敲命令呀", preparing_question: "我问问呀",
   preparing_read: "我读读呀", preparing_search: "我找找呀", preparing_web: "我搜网页",
   preparing_tools: "我找工具", preparing_tool: "我准备呀",
