@@ -87,7 +87,11 @@ function streamedTool(event) {
   const update = event.assistantMessageEvent;
   if (!update || !update.type?.startsWith("toolcall_")) return undefined;
   const call = update.type === "toolcall_end" ? update.toolCall : update.partial?.content?.[update.contentIndex];
-  return call?.type === "toolCall" && typeof call.id === "string" && call.id.length > 0 && typeof call.name === "string" ? call : undefined;
+  return call?.type === "toolCall" ? call : undefined;
+}
+function streamedToolIndex(event) {
+  const index = event.assistantMessageEvent?.contentIndex;
+  return Number.isInteger(index) ? index : -1;
 }
 
 // Normalize only authoritative result facts. DSH's shell renderer deliberately
@@ -295,13 +299,29 @@ export function createActivity({ phrases = {}, labels = {}, bubbles = {}, rotati
         if (part === "text_delta" && hasContent) {
           clearInteraction(); clearToolError(); clearPreparing();
           streamOpen = true; lastTextAt = now(); setPhase("speaking");
-        } else if (part === "text_end") { streamOpen = false; setPhase("thinking"); }
-        else if (part.startsWith("toolcall_")) {
+        } else if (part === "text_end") {
+          // Keep the last output phase: settlement decides whether this was a
+          // final answer. Switching to thinking here made the finishing pose
+          // pass through an unrelated thinking frame first.
+          streamOpen = false;
+        } else if (part.startsWith("toolcall_")) {
           // Arguments are still streaming: show the preparation pose while the
           // real phase stays thinking and no tool is counted yet.
           clearInteraction(); streamOpen = false;
-          const call = streamedTool(event);
-          if (call) preparing = { name: clean(call.name), bubbleKey: preparationBubbleKey(call.name), until: now() + PREPARING_WINDOW_MS };
+          // Providers may emit toolcall_start/delta before the partial content
+          // carries a usable id or name. Keep an index-keyed placeholder so
+          // argument generation still uses the preparation pose; the entry is
+          // upgraded in place once the name arrives.
+          const call = streamedTool(event), contentIndex = streamedToolIndex(event);
+          const callId = typeof call?.id === "string" && call.id.length ? call.id : undefined;
+          const callName = typeof call?.name === "string" && call.name.length ? call.name : undefined;
+          const carried = preparing && (preparing.contentIndex === contentIndex || callId && preparing.id === callId) ? preparing : undefined;
+          preparing = {
+            id: callId || carried?.id,
+            name: clean(callName || carried?.name || ""),
+            bubbleKey: callName ? preparationBubbleKey(callName) : carried?.bubbleKey || "preparing_tool",
+            contentIndex, until: now() + PREPARING_WINDOW_MS,
+          };
           setPhase("thinking");
         }
         else if (part.startsWith("thinking_") && (part !== "thinking_delta" || hasContent)) { clearInteraction(); clearPreparing(); streamOpen = false; setPhase("thinking"); }
@@ -348,7 +368,10 @@ export function createActivity({ phrases = {}, labels = {}, bubbles = {}, rotati
         if (!["toolUse", "deferred"].includes(event.message.stopReason)) clearPreparing();
         if (event.message.stopReason === "error") { clearInteraction(); clearGap(); clearToolError(); setPhase("waiting"); toolWarningUntil = now() + 1800; }
         else if (event.message.stopReason === "aborted") { clearInteraction(); clearGap(); clearToolError(); setPhase("cancelled"); }
-        else setPhase("thinking");
+        // Keep the speaking phase through a normal end-of-message. The final
+        // agent_settled event then transitions straight to success instead of
+        // flashing a thinking pose in between.
+        else if (phase !== "speaking") setPhase("thinking");
         return;
       }
       if (type === "agent_before_settle") { clearInteraction(); clearGap(); clearToolError(); clearPreparing(); outcome = event.outcome; return; }
