@@ -34,7 +34,7 @@ The artifact is `dist/releases/pi-furry-partner-hd-full-animation-2.5.1-preview.
 
 ## Supported runtime and display
 
-Automated coverage includes Windows, Pi **1.2.0 / 1.3.0 / 1.4.0**, Windows PowerShell **5.1 / 7**. Native Chinese UI and compact documentation prompts are guarded by reviewed versions and structures; unknown versions keep native behavior. Configure Pi and its model provider first.
+Automated coverage includes Windows, Pi **1.2.0 / 1.3.0 / 1.4.0 / 1.5.0**, Windows PowerShell **5.1 / 7**. Native Chinese UI and compact documentation prompts are guarded by reviewed versions and structures; unknown versions keep native behavior. Configure Pi and its model provider first.
 
 Use `/mascot render auto|kitty|sixel|blocks`; the terminal must support the selected protocol. Full reactions use `/mascot layout editor`; header layout has its own title portrait. Narrow windows may collapse the dock. Fullscreen uses Pi's native mouse routing; regular mode retains terminal mouse behavior and shows key hints. Automated rendering checks do not establish visual acceptance in every terminal.
 
@@ -51,7 +51,7 @@ Completion and menus follow the 17 IDs in `lib/gestures.mjs`: wave, nod, peek, s
 
 The 17 selectable gestures/expressions are distinct from the **29 approved complete clips** in `assets/animated/catalog.json`, which also cover task states, three idles and keyboard transitions, with **58 indexed entries**. The eight auxiliary gestures and nine expressions currently last 4458ms; approved catalog timing overrides old nominal metadata. See [gesture definitions](shared-gesture-modules.md).
 
-Reading uses watch/magnifier. Editing and execution use `work-enter → work → work-exit`, with 400ms entry and exit. Ordinary short actions have a 1200ms minimum starting when the first frame becomes visible; short work includes at least 800ms of keyboard loop. A completed tool may retain only a safe visual phase for up to 2000ms; real phase/toolCount end immediately. Answer, prompt, error, cancellation and explicit interaction may preempt presentation.
+Reading uses watch/magnifier. Editing uses `work-enter → work → work-exit`. Command execution (for example bash) also uses `watch`, sharing the magnifier with reading and differing only by caption. While the model is still streaming tool arguments and nothing has executed, a bounded preparation pose shows the keyboard without changing real phase/toolCount; the first real execution preempts it at once, keeping only the 400ms keyboard exit. Ordinary short actions have a 1200ms minimum starting when the first frame becomes visible; short work includes at least 800ms of keyboard loop. A completed tool may retain only a safe visual phase for up to 2000ms; real phase/toolCount end immediately. Answer, prompt, error, cancellation and explicit interaction may preempt presentation.
 
 Pause stops loops while real state keeps updating; an explicit poke may still play once. A poke answers in two stages: the authored HD squeeze-eye pose with a gentle full-frame rebound for 1.2 s, then a 1.2 s segment (bounce, ear-flick or head-shake) chosen for idle, busy or waiting context without repeating the same answer back to back. Missing complete motion and paused display use authored HD static poses, without the original edition's deformation player. Only umi illustration is exposed; historical pixel settings migrate to illustration.
 

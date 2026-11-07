@@ -6,7 +6,7 @@
 
 ## 本地检查
 
-使用满足 package 要求的 Node.js（CI 为 Node 24），以及 tools/requirements-validation.txt 中的 Python 验证依赖。Pi 模块分别验证 1.2.0、1.3.0 与 1.4.0；不要依赖个人机器上的特定启动器布局。
+使用满足 package 要求的 Node.js（CI 为 Node 24），以及 tools/requirements-validation.txt 中的 Python 验证依赖。Pi 模块分别验证 1.2.0、1.3.0、1.4.0 与 1.5.0；不要依赖个人机器上的特定启动器布局。
 
 ```powershell
 python -m pip install -r tools/requirements-validation.txt

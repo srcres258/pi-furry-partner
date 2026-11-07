@@ -1,6 +1,6 @@
 # 当前 HD 目录维护规则
 
-本目录是 main 的 editions/hd/，不是独立产品分支。相对源码路径与构建命令均以此为根；根目录原资源版在另一套运行时代码中维护。HD 的 Pi 适配、状态机与播放器位于 lib/hd/，不导入原资源版或 DSH 的可变运行时。当前 HD 源码 2.5.1-preview.6，17 项手动动作、29 个完整片段与 58 个索引入口；只提供插画。
+本目录是 main 的 editions/hd/，不是独立产品分支。相对源码路径与构建命令均以此为根；根目录原资源版在另一套运行时代码中维护。HD 的 Pi 适配、状态机与播放器位于 lib/hd/，不导入原资源版或 DSH 的可变运行时。当前 HD 源码 2.5.1-preview.6，17 项手动动作、29 个完整片段与 58 个索引入口；只提供插画。Pi 适配按显式审阅白名单 1.2.0／1.3.0／1.4.0／1.5.0 启用原生中文界面与提示词精简，提示词布局按发布线区分（1.2.0–1.4.0 一套、1.5.0 一套），未知版本回退 Pi 原生行为；内置命令补全翻译不绑定版本，按逐条登记的英文原文精确匹配，改写后自动回退原文。新增版本须先核对真实结构与文案并同步测试与 CI。
 
 HD 只用 hd-v<HD版本> 从 main 发布，附件前缀 pi-furry-partner-hd，latest=false；原资源版使用根目录 v 标签和 Latest。当前已发布 hd-v2.5.1-preview.6。旧分支、四种分发组合、两端共用源码及 v2.4.5 保留要求属于已被后续用户决定替代的历史产品描述；v2.4.5 已按明确要求清理，其余历史标签不移动。DSH 的构建、Host／Client、安装与测试到其独立仓库执行，本目录不要求存在 DSH 测试入口。
 
@@ -39,6 +39,8 @@ H3首尾帧API核验（2026-10-24，用户纠正）：官方V2支持content中�
 
 
 工具间连续播放约束（用户2026-10-24明确）：最后工具完成但下一步未到时，真实phase/toolCount立即更新，显示用pendingNextState安全阶段元数据保留原动作最多2000ms。连续读取／编辑及相同clip映射的调用沿原播放时钟接续，不重播首帧、不重复键盘出入；非空真实思考或回答、新工具、等待／压缩／终态和会话切换接管。step/start、message_start、正常message_end、text/thinking块开始结束与空delta不作为新内容，不取消或续期。超时仍busy则释放回thinking，不伪造idle。业务截止使用墙钟，暂停／隐藏不得冻结截止，不新增计时器；最短可见时长与加载上限独立保留。两端实际宿主回归和同clip playbackMs连续性均须验证。
+
+准备期与执行期区分（2026-11-04 用户决定，覆盖 2026-10-23“执行使用工作／键盘，阅读使用放大镜”中的执行部分）：用户明确“敲键盘的 animation 是在 LLM 仍在输出 token 过程中但具体的命令或者动作还没开始执行时才播放”，并要求把“命令成形前”与“命令执行中”分开。现行实现：`message_update` 的 `toolcall_*` 事件按工具名生成有界（15000ms）准备显示态，映射 `editing → work-enter/work`，真实 phase 仍为 thinking、toolCount 为 0；`tool_execution_start`、`tool_execution_end`、非 `toolUse/deferred` 的 `message_end`、提问、压缩、settle、shutdown 都会清除该显示态。执行期（`running`，含 bash）改为 `watch`，与 `reading` 共用放大镜，仅气泡文字区分“我瞧瞧”与“我看着呢”。准备→执行立即抢占：`canEnterImmediately` 增加了 `action.prep && toolPhase`，不再等 1200ms 可读驻留，只保留键盘链 400ms 退场；`editing` 仍为键盘链，`source_check` 仍归 running，`get_search_content` 归 searching。同步修改 `editions/hd/docs/architecture.md`、`guide.zh-CN.md`、`guide.en.md` 与相关测试；`editions/hd/tests/watch.mjs`、`tool-gap-pi.mjs`、`action-dwell-pi.mjs`、`state-motion-routing-pi.mjs` 中原本用 bash 验证键盘链的用例改用 edit/write，并新增 bash→watch 断言。执行期是否继续沿用放大镜、是否再做可见区分，留给后续评审。
 
 
 工具失败表情约束（用户2026-10-24指出exit1也不触发）：已配对的真实工具失败显示1800ms墙钟error视觉反应，不将单次工具失败改成会话terminal；facts仍实时准确，普通后续工具/思考不把反应闪掉，回答/等待/取消/reset可立即抢占。DSH官方bash/pwsh持久化结果非0可能isError=false，只有已知命令工具可用官方严格单text末尾退出标记补判；不扫普通正文error/exit1，显式结构化exit码优先。不为错误反应新增计时器；暂停、隐藏及销毁要有界恢复，测试真实Pi与DSH/并行/PTC/去重/零退出。

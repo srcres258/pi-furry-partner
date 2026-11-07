@@ -16,7 +16,7 @@
 <sub>会思考 · 会敲键盘 · 会摇尾巴 · 也会等你回来</sub>
 
 [![Release 2.5.1-preview.6](https://img.shields.io/badge/HD-2.5.1-preview.6-8fb9ea?style=flat-square)](https://github.com/KouzakiUmi/pi-furry-partner/releases/tag/hd-v2.5.1-preview.6)
-[![Pi](https://img.shields.io/badge/Pi-1.2.0%20%7C%201.3.0%20%7C%201.4.0-c4b5e6?style=flat-square)](https://github.com/earendil-works/pi)
+[![Pi](https://img.shields.io/badge/Pi-1.2.0%20%7C%201.3.0%20%7C%201.4.0%20%7C%201.5.0-c4b5e6?style=flat-square)](https://github.com/earendil-works/pi)
 [![Code license](https://img.shields.io/badge/code%20%26%20docs-Apache--2.0-a9dbc9?style=flat-square)](LICENSE)
 [![Character assets](https://img.shields.io/badge/character%20assets-All%20Rights%20Reserved-e8bac5?style=flat-square)](ASSET_LICENSE.md)
 
@@ -103,7 +103,7 @@
 
 **高清头像支持 Kitty Graphics Protocol 或 Sixel。** 默认 `render auto` 优先采用 Pi 检测到的 Kitty 图片能力；否则在 Windows Terminal 且未经过 tmux 时选择 Sixel，再回退字符块。也可使用 `/mascot render kitty`、`sixel` 或 `blocks`。Windows 用户建议使用 **Windows Terminal 1.22 或更新版本**（设置 → 关于查看版本）。插件自行编码图片，无需安装 libsixel、chafa 或图片转换工具。详见[高清显示与终端要求](docs/guide.zh-CN.md#版本终端与布局)。
 
-需要先安装并配置 Pi。本项目的完整验证环境是 **Windows、Pi 1.2.0 / 1.3.0 / 1.4.0、Windows PowerShell 5.1 / PowerShell 7**；这三个版本的完整测试均已通过，原生中文界面与 Pi 文档提示精简对三者同样启用，其他版本保留 Pi 原有行为。上游还记录了 **NixOS 26.05 (Yarara)、Pi 1.3.0、Kitty 0.49.1** 的实机验证，覆盖角色显示、实时动画、`auto`/`kitty`/`blocks` 切换和日常交互；这是当时版本的补充验证，不代表本轮全动态构建已在该环境重新验收。终端支持会影响清晰度。
+需要先安装并配置 Pi。本项目的完整验证环境是 **Windows、Pi 1.2.0 / 1.3.0 / 1.4.0 / 1.5.0、Windows PowerShell 5.1 / PowerShell 7**；这四个版本的完整测试均已通过，原生中文界面与 Pi 文档提示精简对四者同样启用，其他版本保留 Pi 原有行为。上游还记录了 **NixOS 26.05 (Yarara)、Pi 1.3.0、Kitty 0.49.1** 的实机验证，覆盖角色显示、实时动画、`auto`/`kitty`/`blocks` 切换和日常交互；这是当时版本的补充验证，不代表本轮全动态构建已在该环境重新验收。终端支持会影响清晰度。
 
 感谢 [@srcres258](https://github.com/srcres258) 在 [PR #1](https://github.com/KouzakiUmi/pi-furry-partner/pull/1) 中贡献 Kitty 渲染支持及 Pi 1.3 / NixOS 验证。相关渲染修复和回归测试保留在 HD 独立源码中。
 
@@ -114,6 +114,19 @@
 | Pi 终端 | `pi-furry-partner-hd-full-animation-2.5.1-preview.6-pi-core.tgz` |
 
 GitHub 自动提供的 **Source code** 是所选 tag 的源码。开发者先运行 `npm run build:animated`，再安装生成的对应平台包；HD 独立构建，不调用 Legacy 源码。
+
+### Nix 安装
+
+Nix 用户可构建经双 Pi 运行时测试、归档审计和解包读取器验证的 HD Pi 包，再让 Pi 从稳定的 GC root 加载它：
+
+```sh
+extension_link="${XDG_DATA_HOME:-$HOME/.local/share}/pi-furry-partner/hd-extension"
+mkdir -p "$(dirname "$extension_link")"
+nix build --out-link "$extension_link" github:KouzakiUmi/pi-furry-partner#pi-hd-extension
+pi install "$extension_link"
+```
+
+`--out-link` 保留 store 输出的 GC root；不要只把 `nix build --print-out-paths` 的临时 store 路径写进 Pi 设置。升级时以同一路径重新运行 `nix build`，再重启 Pi。同一宿主只安装 HD、原资源版、Git 包或 PowerShell 脚本中的一种来源，避免重复加载。
 
 ### Pi 终端安装
 
@@ -176,6 +189,8 @@ pi
 
 语言偏好会保存到 `config.json`，默认是 `auto`：检测系统语言，中文环境显示简体中文，其他语言环境使用 English。已有配置未设置语言时也使用自动检测；已经明确选择的 `en` 或 `zh-CN` 会继续保留。执行 `/mascot language auto` 可随时恢复跟随系统，`status` 会显示偏好与实际使用的语言。切换后，角色状态短句、气泡、输入框控件、快捷菜单和信息面板立即更新，当前任务、输入草稿与动作节奏继续保留。角色的默认显示名会随语言显示为“呜咪”或 **Umi**，你自定义的名字和副标题保持原样。
 
+可写安装目录会继续使用包内 `config.json`；只读安装（包括 Nix store）会把偏好保存到 `$XDG_CONFIG_HOME/pi-furry-partner/config.json`（Windows 使用 `%APPDATA%`）。也可以用 `PI_FURRY_PARTNER_CONFIG` 指定完整路径；包内 `config.json` 始终只是默认配置。
+
 英文模式沿用 Pi 原生英文界面；`locale` 的中文补丁偏好会保留，切回中文时再按原设置应用。`prompt` 开启时，仅把已确认的 Pi 文档提示章节精简为对应语言，关闭时恢复这段文档提示原文；身份说明、工具和规则始终沿用 Pi 原生内容；`persona` 独立控制角色口吻，也随实际语言选择模板。提示词与口吻的变化从下一轮请求生效。代码、工具输出、模型名、路径和项目指令不会因为切换语言被翻译。
 
 ## 三个独立开关
@@ -188,7 +203,7 @@ pi
 
 三者都支持 `status`。`/mascot off` 关闭界面角色；这些开关各自保留，需要分别关闭。
 
-- **界面中文**：中文模式下，兼容 Pi **1.2.0 / 1.3.0 / 1.4.0** 的已知固定界面文字，以及 24 个内置命令补全说明。设置主列表可搜索中文标签。英文模式保留原生英文，其他版本或未知内容保留原文。
+- **界面中文**：中文模式下，兼容 Pi **1.2.0 / 1.3.0 / 1.4.0 / 1.5.0** 的已知固定界面文字，以及 24 个内置命令补全说明。设置主列表可搜索中文标签。英文模式保留原生英文，其他版本或未知内容保留原文。
 - **Pi 文档提示精简**：下一轮请求中，仅将精确识别的 Pi 文档提示章节改成简洁中文或英文，保留文档路径、完整阅读和交叉引用要求。身份说明、工具清单与规则保持原生；自定义 `SYSTEM.md`、项目 `AGENTS.md`、技能和后续扩展加入的动态内容继续沿用。关闭后不替换该文档章节。表达更短不代表所有模型的 token 都按相同比例减少。
 - **角色口吻**：温柔、可爱、活泼，带一点俏皮；关键事情认真稳重。中英文各有独立模板，随当前语言选用；只调整表达，技术准确性、代码和结构化输出优先。
 
@@ -204,7 +219,7 @@ pi
 | 查看这次发布的变化 | [更新记录](CHANGELOG.md) |
 | 报告问题或提出建议 | [GitHub Issues](https://github.com/KouzakiUmi/pi-furry-partner/issues) |
 
-测试覆盖状态节奏、输入区布局、鼠标路由、Kitty PNG/Sixel 数据流、中文兼容和提示词边界，并在隔离目录验证安装、迁移与恢复。Pi 1.2.0、1.3.0 与 1.4.0 的完整测试均已通过，CI 分别用这三个版本运行。环境准备和执行方式见贡献指南，验证范围与终端限制见[使用指南](docs/guide.zh-CN.md#排错与开发)。
+测试覆盖状态节奏、输入区布局、鼠标路由、Kitty PNG/Sixel 数据流、中文兼容和提示词边界，并在隔离目录验证安装、迁移与恢复。Pi 1.2.0、1.3.0、1.4.0 与 1.5.0 的完整测试均已通过，CI 分别用这四个版本运行。环境准备和执行方式见贡献指南，验证范围与终端限制见[使用指南](docs/guide.zh-CN.md#排错与开发)。
 
 ## 许可与致谢
 

@@ -1,5 +1,6 @@
-import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { accessSync, constants, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { CustomEditor, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import * as agentUI from "@earendil-works/pi-coding-agent";
@@ -34,7 +35,14 @@ import { createResponseLatency, withResponseLatency } from "./lib/response-laten
 import { normalizeLanguage, resolveLanguage, systemLanguage, localize, localizeSnapshot, replaceActivityCopy, nativeChineseEnabled, compactPromptEnabled, personaFilename, companionName, companionSubtitle, mascotDescription } from "./lib/language.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
-const configPath = join(root, "config.json");
+const packageConfigPath = join(root, "config.json");
+const explicitConfigPath = process.env.PI_FURRY_PARTNER_CONFIG;
+const configPath = explicitConfigPath ? resolve(explicitConfigPath) : (() => {
+  try { accessSync(root, constants.W_OK); return packageConfigPath; }
+  catch { /* Read-only packages, including Nix stores, use a user config. */ }
+  const configHome = process.env.XDG_CONFIG_HOME || process.env.APPDATA || join(homedir(), ".config");
+  return join(configHome, "pi-furry-partner", "config.json");
+})();
 const read = (path: string) => JSON.parse(readFileSync(join(root, path), "utf8"));
 const DEFAULTS = {
   name: "呜咪", subtitle: "你的工作搭档", enabled: true, animation: true, persona: false,
@@ -51,7 +59,7 @@ function terminalCursor(tui: any) {
 export default function (pi: ExtensionAPI) {
   let settings = { ...DEFAULTS };
   try {
-    const saved = read("config.json");
+    const saved = JSON.parse(readFileSync(configPath, "utf8"));
     for (const key of ["animation", "enabled", "optimizeEditor", "persona", "chineseUI", "compactPrompt"] as const) {
       if (typeof saved[key] === "boolean") settings[key] = saved[key];
     }
@@ -167,7 +175,7 @@ export default function (pi: ExtensionAPI) {
   function pausedSnapshot(next: ReturnType<typeof activity.snapshot>) {
     activity.cancelInteraction("welcome");
     if (next.reaction === "error" || next.reaction === "poked" && next.demoMode !== "all") return next;
-    const faces: Record<string, string> = { idle: "idle-open", thinking: "think", speaking: "talk-closed", reading: "watch", editing: "work", running: "work", searching: "search", compacting: "search", waiting: "wait", success: "happy", error: "error", cancelled: "rest" };
+    const faces: Record<string, string> = { idle: "idle-open", thinking: "think", speaking: "talk-closed", reading: "watch", editing: "work", running: "watch", searching: "search", compacting: "search", waiting: "wait", success: "happy", error: "error", cancelled: "rest" };
     const bubbles: Record<string, string> = voice.bubbles;
     // A paused visual hold must never latch a previous work/blink pose after
     // its real tool has ended. Keep the state readable without running motion.
@@ -570,7 +578,10 @@ export default function (pi: ExtensionAPI) {
   }
 
   function save(ctx: ExtensionContext) {
-    try { writeFileSync(configPath, JSON.stringify(settings, null, 2) + "\n", "utf8"); }
+    try {
+      mkdirSync(dirname(configPath), { recursive: true });
+      writeFileSync(configPath, JSON.stringify(settings, null, 2) + "\n", "utf8");
+    }
     catch (error) { ctx.ui.notify(`${l("设置已应用，但无法保存：", "Settings applied, but I couldn't save them: ")}${(error as Error).message}`, "warning"); }
   }
   pi.on("before_agent_start", (event, ctx) => {
